@@ -19,7 +19,7 @@ func ListTasks(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to list tasks", http.StatusInternalServerError)
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", "application/json") //Whenver I am sending json data back to client I use application/json
 	json.NewEncoder(w).Encode(tasks)
 }
 
@@ -80,8 +80,8 @@ func UpdateTask(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(t)
 }
 
-// DeleteTaskHandler handles DELETE /tasks/{id}
-func DeleteTaskHandler(w http.ResponseWriter, r *http.Request) {
+// DeleteTaskHandler - DELETE /tasks/{id}
+func DeleteTask(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodDelete {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -99,7 +99,30 @@ func DeleteTaskHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
+// MarkComplete - PUT /tasks/{id}/complete
+func MarkComplete(w http.ResponseWriter,r *http.Request){
+if r.Method != http.MethodPut {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	idStr:= strings.TrimPrefix(r.URL.Path,"/tasks/")
+	idStr = strings.TrimSuffix(idStr,"/complete")
+	id,err := strconv.Atoi(idStr)
+	if err != nil || id <= 0 {
+        http.Error(w, "Invalid task ID", http.StatusBadRequest)
+        return
+    }
+	path:=task.TasksFilePath()
+	t,err := task.CompleteTask(path,id)
+	if err != nil {
+        http.Error(w, "Task not found", http.StatusNotFound)
+        return
+    }
+	t.Status = "done"
+	 w.Header().Set("Content-Type", "application/json")
+    json.NewEncoder(w).Encode(t)
 
+}
 
 // func ListTasks(w http.ResponseWriter, r *http.Request) {
 // 	tasks, err := task.ListTasks(task.TasksFilePath())
