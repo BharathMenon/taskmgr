@@ -149,7 +149,14 @@ func findTaskIndex(tasks []Task, id int) int {
 	}
 	return -1
 }
-
+func GetTask(id int) (Task,error){
+	tasks,err:=loadTasks(TasksFilePath())
+	if err!=nil{
+		return Task{},err
+	}
+	  idx := findTaskIndex(tasks,id)
+		return tasks[idx],nil
+}
 func (t *Task) Update(title, desc, status *string) {
 	now := time.Now().UTC()
 	if title != nil {
