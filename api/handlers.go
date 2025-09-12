@@ -134,38 +134,38 @@ if r.Method != http.MethodPut {
 // 	json.NewEncoder(w).Encode(tasks)
 // }
 
-// func NewTask(w http.ResponseWriter, r *http.Request) {
-// 	if r.Method != http.MethodPost {
-// 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-// 		return
-// 	}
-// 	if r.Header.Get("Content-Type") != "application/json" {
-// 		http.Error(w, "Content-Type must be application/json", http.StatusUnsupportedMediaType)
-// 		return
-// 	}
-// 	var req struct {
-// 		Title       string `json:"title"`
-// 		Description string `json:"desc"`
-// 	}
-// 	decoder := json.NewDecoder(r.Body)
-// 	decoder.DisallowUnknownFields()
-// 	if err := decoder.Decode(&req); err != nil {
-// 		http.Error(w, "Invalid JSON: "+err.Error(), http.StatusBadRequest)
-// 		return
-// 	}
-// 	if strings.TrimSpace(req.Title) == "" {
-// 		http.Error(w, "Title is required", http.StatusBadRequest)
-// 		return
-// 	}
-// 	t, err := task.AddTask(task.TasksFilePath(), req.Title, req.Description)
-// 	if err != nil {
-// 		http.Error(w, "Failed to create task", http.StatusInternalServerError)
-// 		return
-// 	}
-// 	w.Header().Set("Content-Type", "application/json")
-// 	w.WriteHeader(http.StatusCreated)
-// 	json.NewEncoder(w).Encode(t)
-// }
+func NewTask(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if r.Header.Get("Content-Type") != "application/json" {
+		http.Error(w, "Content-Type must be application/json", http.StatusUnsupportedMediaType)
+		return
+	}
+	var req struct {
+		Title       string `json:"title"`
+		Description string `json:"desc"`
+	}
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&req); err != nil {
+		http.Error(w, "Invalid JSON: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+	if strings.TrimSpace(req.Title) == "" {
+		http.Error(w, "Title is required", http.StatusBadRequest)
+		return
+	}
+	t, err := task.AddTask(task.TasksFilePath(), req.Title, req.Description)
+	if err != nil {
+		http.Error(w, "Failed to create task", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(t)
+}
 
 // func GetTask(w http.ResponseWriter, r *http.Request){
 
