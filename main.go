@@ -4,12 +4,33 @@ import (
 	// "flag"
 	// "fmt"
 	// "os"
-	api "github.com/BharathMenon/taskmgr/api"
+	//api "github.com/BharathMenon/taskmgr/api"
+	gin "github.com/gin-gonic/gin"
+    v1 "github.com/BharathMenon/taskmgr/api/v1"
+   auth "github.com/BharathMenon/taskmgr/auth"
 	//task "github.com/BharathMenon/taskmgr/task"
 )
 
 	func main() {
-		api.StartServer()
+		//api.StartServer()
+		r:=gin.Default()
+		//swagger stuff
+		authGroup:=r.Group("/auth")
+		{
+			authGroup.POST("/register",auth.Register)
+			authGroup.POST("/login",auth.Login)
+		}
+		apiV1 := r.Group("/api/v1")
+		apiV1.Use(auth.AuthRequired())
+		{
+        apiV1.GET("/tasks", v1.ListTasks)
+        apiV1.POST("/tasks", v1.NewTask)
+        apiV1.GET("/tasks/:id", v1.GetTask)
+        apiV1.PUT("/tasks/:id", v1.UpdateTask)
+        apiV1.DELETE("/tasks/:id", v1.DeleteTask)
+        apiV1.PUT("/tasks/:id/complete", v1.MarkComplete)
+    }
+	r.Run(":8080") 
 	// 	addFlag := flag.Bool("add", false, "Add a task")
 	// 	listFlag := flag.Bool("list", false, "List tasks")
 	// 	updateFlag := flag.Bool("update", false, "Update a task")
