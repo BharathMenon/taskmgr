@@ -5,20 +5,23 @@ import (
 	// "fmt"
 	// "os"
 	//api "github.com/BharathMenon/taskmgr/api"
+	v1 "github.com/BharathMenon/taskmgr/api/v1"
+	auth "github.com/BharathMenon/taskmgr/auth"
+	"github.com/BharathMenon/taskmgr/db"
 	gin "github.com/gin-gonic/gin"
-    v1 "github.com/BharathMenon/taskmgr/api/v1"
-   auth "github.com/BharathMenon/taskmgr/auth"
 	//task "github.com/BharathMenon/taskmgr/task"
 )
 
 	func main() {
 		//api.StartServer()
 		r:=gin.Default()
+		userRepo := db.NewUserRepository(db.DB)
+		taskRepo := db.NewTaskRepository(db.DB)
 		//swagger stuff
 		authGroup:=r.Group("/auth")
 		{
-			authGroup.POST("/register",auth.Register)
-			authGroup.POST("/login",auth.Login)
+			authGroup.POST("/register", auth.Register(userRepo))
+			authGroup.POST("/login", auth.Login(userRepo))
 		}
 		apiV1 := r.Group("/api/v1")
 		apiV1.Use(auth.AuthRequired())

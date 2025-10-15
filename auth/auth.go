@@ -1,13 +1,15 @@
 package auth
 
 import (
-    "net/http"
-    "sync"
-    "time"
+	"net/http"
+	"sync"
+	"time"
 
-    "github.com/gin-gonic/gin"
-    "github.com/golang-jwt/jwt"
-    "golang.org/x/crypto/bcrypt"
+	"github.com/BharathMenon/taskmgr/db"
+	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt"
+	"golang.org/x/crypto/bcrypt"
+	//"gorm.io/gorm"
 )
 
 var jwtKey = []byte("7Tr5G8xgCqJ1e0fKjN2mYzPqB9wQ4lT5XvR8NwQyTzM=")
@@ -23,72 +25,87 @@ var (
     mu    sync.RWMutex
 )
 
-func Register(c *gin.Context) {
-    type RegisterRequest struct {
-        Username string `json:"username" binding:"required"`
-        Password string `json:"password" binding:"required"`
-    }
-    var req RegisterRequest
-    if err := c.ShouldBindJSON(&req); err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-        return
-    }
+func Register(userRepo *db.UserRepository) gin.HandlerFunc {
+    return func(c *gin.Context) {
+        var req struct {
+            Username string `json:"username" binding:"required"`
+            Email    string `json:"email" binding:"required"`
+            Password string `json:"password" binding:"required"`
+        }
+        if err := c.ShouldBindJSON(&req); err != nil {
+            c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+            return
+        }
 
-    mu.Lock()
-    defer mu.Unlock()
-    if _, exists := users[req.Username]; exists {
-        c.JSON(http.StatusBadRequest, gin.H{"error": "username already exists"})
-        return
-    }
+        mu.Lock()
+        defer mu.Unlock()
 
-    hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
-    if err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to hash password"})
-        return
+        // Check if username already exists
+        if existing, _ := userRepo.FindByUsername(req.Username); existing.ID != 0 {
+            c.JSON(http.StatusBadRequest, gin.H{"error": "username already exists"})
+            return
+        }
+
+        // Hash the password
+        hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+        if err != nil {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to hash password"})
+            return
+        }
+
+        user := db.User{
+            Username: req.Username,
+            Email:    req.Email,
+            Password: string(hashedPassword),
+        }
+
+        if err := userRepo.CreateUser(&user); err != nil {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+            return
+        }
+        c.JSON(http.StatusCreated, gin.H{"message": "user registered"})
     }
-    users[req.Username] = string(hashedPassword)
-    c.JSON(http.StatusCreated, gin.H{"message": "registered successfully"})
 }
 
+func Login(userRepo *db.UserRepository) gin.HandlerFunc {
+    return func(c *gin.Context) {
+        type LoginRequest struct {
+            Username string `json:"username" binding:"required"`
+            Password string `json:"password" binding:"required"`
+        }
+        var req LoginRequest
+        if err := c.ShouldBindJSON(&req); err != nil {
+            c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+            return
+        }
 
-func Login(c *gin.Context) {
-    type LoginRequest struct {
-        Username string `json:"username" binding:"required"`
-        Password string `json:"password" binding:"required"`
-    }     
-    var req LoginRequest
-    if err := c.ShouldBindJSON(&req); err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-        return
-    }
+        user, err := userRepo.FindByUsername(req.Username)
+        if err != nil || user.ID == 0 {
+            c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid credentials"})
+            return
+        }
 
-    mu.RLock()
-    hashed, exists := users[req.Username]
-    mu.RUnlock()
-    if !exists {
-        c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid credentials"})
-        return
-    }
+        // Compare hashed password
+        if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
+            c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid credentials"})
+            return
+        }
 
-    if err := bcrypt.CompareHashAndPassword([]byte(hashed), []byte(req.Password)); err != nil {
-        c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid credentials"})
-        return
+        expirationTime := time.Now().Add(24 * time.Hour)
+        claims := &Claims{
+            Username: req.Username,
+            StandardClaims: jwt.StandardClaims{
+                ExpiresAt: expirationTime.Unix(),
+            },
+        }
+        token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+        tokenString, err := token.SignedString(jwtKey)
+        if err != nil {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "could not generate token"})
+            return
+        }
+        c.JSON(http.StatusOK, gin.H{"token": tokenString})
     }
-
-    expirationTime := time.Now().Add(24 * time.Hour)
-    claims := &Claims{
-        Username: req.Username,
-        StandardClaims: jwt.StandardClaims{
-            ExpiresAt: expirationTime.Unix(),
-        },
-    }
-    token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-    tokenString, err := token.SignedString(jwtKey)
-    if err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "could not generate token"})
-        return
-    }
-    c.JSON(http.StatusOK, gin.H{"token": tokenString})
 }
 
 
